@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>POPWA</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="script.js" defer></script>
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.8.1/css/all.css" integrity="sha384-50oBUHEmvpQ+1lW4y57PTFmhCaXp0ML5d60M1M7uH2+nqUivzIebhndOJK28anvf" crossorigin="anonymous">
+    <link rel="preload" href="image/popwa2.png" as="image">
+</head>
+<body>
+    <div class="container" id="welcome-container">
+        <h1>POPWA</h1>
+        <div id="username-container">
+            <label for="username">Enter your name:</label>
+            <input type="text" id="username" name="username">
+        </div>
+        <button id="start-button" onclick="startGame()">Start Game</button>
+    </div>
+
+    <div class="container" id="game-container" style="display: none;">
+        <h1>POPWA</h1>
+        <span id="display-username"></span>
+        <p id="score">0</p>
+        <img src="image/popwa1.png" alt="Invalid" id="popwa1">
+        <div id="leaderboard-container" class="hidden">
+            <button id="view-leaderboard-button" onclick="toggleLeaderboard()">Leaderboard</button>
+            <p></p>
+            <ul id="leaderboard">
+            </ul>
+        </div>
+    </div>
+</body>
+</html>
