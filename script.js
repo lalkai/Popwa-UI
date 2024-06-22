@@ -1,30 +1,56 @@
-let Username = "";
+let username = "";
 let score = 0;
-var count = document.getElementById("score");
+let updateScoreTimeout;
+let ws;
+
+const apiUrl = 'Your API URL';
+const delay = 3000;
+const count = document.getElementById("score");
+
+
+function initWebSocket() {
+  ws = new WebSocket(`ws://${apiUrl}/wsPopwa`);
+
+  ws.onmessage = (event) => {
+    try {
+      const data = JSON.parse(event.data);
+      if (data.action === "updateLeaderboard") {
+        updateLeaderboard(data.data.users);
+      }
+    } catch (error) {
+      console.error("Error parsing JSON from WebSocket message:", error);
+    }
+  };
+
+  ws.onclose = () => {
+    console.log("WebSocket closed. Reconnecting...");
+    setTimeout(initWebSocket, 2000);
+  };
+
+  ws.onerror = (error) => {
+    console.error("WebSocket error:", error);
+    ws.close();
+  };
+}
+
 
 function startGame() {
-  let Username = document.getElementById("username").value.trim();
+  username = document.getElementById("username").value.trim();
 
-  if (Username === "") {
-    Username = "Anonymous";
+  if (username === "") {
+    username = "Anonymous";
   }
 
-  document.getElementById("display-username").innerText = `#${Username}`;
-  getUserScore(Username, getLeaderboard);
-
-  setInterval(() => {
-    if (Username !== "Anonymous") {
-      updateScore(Username, score);
-    }
-  }, 10);
+  document.getElementById("display-username").innerText = `#${username}`;
+  getUserScore(username, getLeaderboard);
 
   document.getElementById("welcome-container").style.display = "none";
   document.getElementById("game-container").style.display = "flex";
 
-  var img = document.getElementById("popwa1");
+  const img = document.getElementById("popwa1");
 
-  var audio = new Audio("sound/pop.mp3");
-  var isTouchDevice = "ontouchstart" in document.documentElement;
+  const audio = new Audio("sound/pop.mp3");
+  const isTouchDevice = "ontouchstart" in document.documentElement;
 
   count.innerHTML = score;
 
@@ -49,19 +75,19 @@ function startGame() {
     increaseScore();
     img.src = "image/popwa2.png";
     audio.play();
-  });
+  }, { passive: false });
 
   img.addEventListener("touchend", function () {
     img.src = "image/popwa1.png";
     audio.play();
-  });
+  }, { passive: true });
 
   function increaseScore() {
     score++;
     count.innerHTML = score;
+    updateScore(username, score); 
   }
 }
-
 function updateScore(username, score) {
   try {
     const data = {
@@ -69,20 +95,22 @@ function updateScore(username, score) {
       Score: score,
     };
 
-    fetch("Your_API", {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(data),
-    })
-      .then((response) => response.json())
-      .then((data) => {})
-      .catch((error) => {
-        console.error("Error sending data to API:", error);
-      });
+    if (updateScoreTimeout) {
+      clearTimeout(updateScoreTimeout);
+    }
+
+    updateScoreTimeout = setTimeout(() => {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+          action: "updateScore",
+          data: data,
+        }));
+      } else {
+        console.error("WebSocket is not open.");
+      }
+    }, delay);
   } catch (error) {
-    console.error("Error in sendDataToApi:", error);
+    console.error("Error in updateScore:", error);
   }
 }
 
@@ -92,7 +120,7 @@ function addUser(username) {
       UserName: username,
     };
 
-    fetch("Your_API", {
+    fetch(`http://${apiUrl}/addUser`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -102,16 +130,16 @@ function addUser(username) {
       .then((response) => response.json())
       .then((data) => {})
       .catch((error) => {
-        console.error("Error sending data to API:", error);
+        console.error("Error adding user:", error);
       });
   } catch (error) {
-    console.error("Error in sendDataToApi:", error);
+    console.error("Error in addUser:", error);
   }
 }
 
 function getUserScore(username, callback) {
   try {
-    fetch(`Your_API${username}`)
+    fetch(`http://${apiUrl}/getUser/${username}`)
       .then((response) => response.json())
       .then((data) => {
         if (data && data.users.Score !== undefined) {
@@ -135,37 +163,37 @@ function getUserScore(username, callback) {
 }
 
 function getLeaderboard() {
-  const socket = new WebSocket("Your_API");
-
-  socket.onmessage = (event) => {
-    try {
-      const data = JSON.parse(event.data);
-
-      const leaderboardContainer = document.getElementById("leaderboard");
-      if (leaderboardContainer) {
-        leaderboardContainer.innerHTML = "";
-
-        if (Array.isArray(data.users)) {
-          data.users.sort((a, b) => b.Score - a.Score);
-          data.users.forEach((user, index) => {
-            const listItem = document.createElement("li");
-            listItem.innerHTML = `${index + 1}. ${user.UserName}: ${user.Score}`;
-            leaderboardContainer.appendChild(listItem);
-          });
-        }
-      }
-    } catch (error) {
-      console.error("Error parsing WebSocket message:", error);
+  try {
+    if (ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({
+        action: "getLeaderboard",
+      }));
+    } else {
+      console.error("WebSocket is not open.");
     }
-  };
+  } catch (error) {
+    console.error("Error in getLeaderboard:", error);
+  }
+}
 
-  socket.onclose = () => {
-    setTimeout(getLeaderboard, 2000);
-  };
+function updateLeaderboard(users) {
+  try {
+    const leaderboardContainer = document.getElementById("leaderboard");
+    if (leaderboardContainer) {
+      leaderboardContainer.innerHTML = "";
 
-  socket.onerror = (error) => {
-    socket.close();
-  };
+      if (Array.isArray(users)) {
+        users.sort((a, b) => b.Score - a.Score);
+        users.forEach((user, index) => {
+          const listItem = document.createElement("li");
+          listItem.textContent = `${index + 1}. ${user.UserName}: ${user.Score}`;
+          leaderboardContainer.appendChild(listItem);
+        });
+      }
+    }
+  } catch (error) {
+    console.error("Error updating leaderboard:", error);
+  }
 }
 
 function toggleLeaderboard() {
@@ -174,3 +202,5 @@ function toggleLeaderboard() {
     leaderboardContainer.classList.toggle("visible");
   }
 }
+
+initWebSocket();
